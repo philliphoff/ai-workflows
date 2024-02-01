@@ -10,6 +10,7 @@ public static class WorkflowRuntimeOptionsExtensions
     {
         options.RegisterWorkflow<ChatWorkflow>();
 
+        options.RegisterActivity<ChatActivity>();
         options.RegisterActivity<NotifyActivity>();
         options.RegisterActivity<PublishResponseActivity>();
     }

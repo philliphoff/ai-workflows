@@ -18,23 +18,47 @@ public sealed class ChatWorkflow : Workflow<ChatHistory, Unit>
             name: nameof(NotifyActivity),
             input: new ActivityInput("Workflow started!"));
 
+        var latestHistory = input;
+
         var prompt = await context.WaitForExternalEventAsync<string>(
             eventName: "Prompt");
-
-        var newHistory = input with
-        {
-            Items = input.Items.Append(new ChatHistoryItem("User", prompt)).ToArray()
-        };
 
         await context.CallActivityAsync(
             name: nameof(NotifyActivity),
             input: new ActivityInput($"Prompt received: {prompt}"));
 
+        latestHistory = latestHistory with
+        {
+            Items =
+                latestHistory
+                    .Items
+                    .Append(new ChatHistoryItem("User", prompt))
+                    .ToArray()
+        };
+
+        var request = new ChatRequest(prompt)
+        {
+            History = latestHistory
+        };
+
+        var response = await context.CallActivityAsync<string>(
+            name: nameof(ChatActivity),
+            input: request);
+
+        latestHistory = latestHistory with
+        {
+            Items =
+                latestHistory
+                    .Items
+                    .Append(new ChatHistoryItem("AI", response))
+                    .ToArray()
+        };
+
         await context.CallActivityAsync(
             name: nameof(PublishResponseActivity),
-            input: new PublishResponseRequest("Response received!"));
+            input: new PublishResponseRequest(response));
 
-        context.ContinueAsNew(newHistory);
+        context.ContinueAsNew(latestHistory);
 
         return Unit.Default;
     }
