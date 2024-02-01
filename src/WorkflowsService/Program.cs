@@ -13,18 +13,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddDaprClient();
-
-builder.Services.AddDaprWorkflow(
-    options =>
-    {
-        options.RegisterAIWorkflows();
-    });
+builder.Services.AddDaprAIWorkflows();
 
 var app = builder.Build();
 
-app.UseCloudEvents();
-app.MapSubscribeHandler();
+app.UseDaprAIWorkflows();
 
 var waitMap = new ConcurrentDictionary<string, TaskCompletionSource<string>>();
 
@@ -35,48 +28,34 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapPost("/start-session", async (StartSessionRequest request, DaprWorkflowClient workflowClient) =>
+app.MapPost("/start-session", async (StartSessionRequest request, DaprAIManager aiManager) =>
 {
-    await workflowClient.ScheduleNewWorkflowAsync(
-        name: nameof(ChatWorkflow),
-        instanceId: request.InstanceId,
-        input: new ChatHistory());
+    await aiManager.StartChatSessionAsync(request.InstanceId);
 })
 .WithName("StartSession")
 .WithOpenApi();
 
-app.MapPost("/continue-session", async (ContinueSessionRequest request, DaprWorkflowClient workflowClient) =>
+app.MapPost("/continue-session", async (ContinueSessionRequest request, DaprAIManager aIManager) =>
 {
-    var tcs = waitMap.GetOrAdd(request.InstanceId, new TaskCompletionSource<string>());
-
-    await workflowClient.RaiseEventAsync(
-        instanceId: request.InstanceId,
-        eventName: "Prompt",
-        eventPayload: request.Prompt);
-
-    var response = await tcs.Task;
-
-    waitMap.TryRemove(request.InstanceId, out _);
+    var response = await aIManager.ContinueChatSessionAsync(
+        sessionId: request.InstanceId,
+        prompt: request.Prompt);
 
     return response;
 })
 .WithName("ContinueSession")
 .WithOpenApi();
 
-app.MapPost("/end-session", async (EndSessionRequest request, DaprWorkflowClient workflowClient) =>
+app.MapPost("/end-session", async (EndSessionRequest request, DaprAIManager aIManager) =>
 {
-    await workflowClient.TerminateWorkflowAsync(
-        instanceId: request.InstanceId);
+    await aIManager.EndChatSessionAsync(request.InstanceId);
 })
 .WithName("EndSession")
 .WithOpenApi();
 
-app.MapPost("/subscriptions/session-response", [Topic("pubsub", "session-response")] (PublishedResponse response) =>
+app.MapPost("/subscriptions/session-response", [Topic("pubsub", "session-response")] async (PublishedResponse response, DaprAIManager aiManager) =>
 {
-    if (waitMap.TryGetValue(response.InstanceId, out var tcs))
-    {
-        tcs.SetResult(response.Message);
-    }
+    await aiManager.NotifyPromptResponseAsync(response.InstanceId, response.Message);
 });
 
 app.Run();
