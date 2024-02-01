@@ -30,11 +30,11 @@ public sealed class ChatWorkflow : Workflow<ChatHistory, Unit>
             name: nameof(NotifyActivity),
             input: new ActivityInput($"Prompt received: {prompt}"));
 
-        context.ContinueAsNew(newHistory);
-
         await context.CallActivityAsync(
-            name: nameof(NotifyActivity),
-            input: new ActivityInput("Workflow completed!"));
+            name: nameof(PublishResponseActivity),
+            input: new PublishResponseRequest("Response received!"));
+
+        context.ContinueAsNew(newHistory);
 
         return Unit.Default;
     }
