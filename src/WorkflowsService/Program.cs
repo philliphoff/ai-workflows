@@ -1,10 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json.Serialization;
-using Dapr;
 using Dapr.AI;
-using Dapr.AI.Activities;
-using Dapr.AI.Workflows;
-using Dapr.Workflow;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,11 +48,6 @@ app.MapPost("/end-session", async (EndSessionRequest request, DaprAIManager aIMa
 })
 .WithName("EndSession")
 .WithOpenApi();
-
-app.MapPost("/subscriptions/session-response", [Topic("pubsub", "session-response")] async (PublishedResponse response, DaprAIManager aiManager) =>
-{
-    await aiManager.NotifyPromptResponseAsync(response.InstanceId, response.Message);
-});
 
 app.Run();
 
