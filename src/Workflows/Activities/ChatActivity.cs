@@ -28,13 +28,14 @@ public sealed class ChatActivity : WorkflowActivity<ChatRequest, string>
         try
         {
             string endpoint = this.configuration.GetValue<string>("AZURE_OPEN_AI_ENDPOINT") ?? throw new InvalidOperationException("Azure OpenAI endpoint not found.");
+            string deployment = this.configuration.GetValue<string>("AZURE_OPEN_AI_DEPLOYMENT") ?? throw new InvalidOperationException("Azure OpenAI deployment not found.");
             string key = this.configuration.GetValue<string>("AZURE_OPEN_AI_KEY") ?? throw new InvalidOperationException("Azure OpenAI key not found.");
 
             var client = new OpenAIClient(new Uri(endpoint), new AzureKeyCredential(key));
 
             var options = new ChatCompletionsOptions
             {
-                DeploymentName = "gpt-4",
+                DeploymentName = deployment,
             };
 
             foreach (var message in input.History.Items.Select(ToChatRequestMessage))
